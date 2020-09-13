@@ -1,25 +1,138 @@
 ---
 title: "Reproducible Research: Peer Assessment 1"
-output: 
+output:
   html_document:
     keep_md: true
 ---
-
+**Assignment done by Juan Pablo Loaiza Ramírez**
 
 ## Loading and preprocessing the data
+1. Unzip the file "activity.zip", which is in the working directory.
+```{r unzipping, echo = TRUE}
+unzip(zipfile = "activity.zip", exdir = getwd())
+```
 
+2. Assign the data of the .csv file to *data*. This object reads the data with a header, with "NA" as missing valus, and reads 17,568 columns.
+```{r readingdata, echo = TRUE}
+data <- read.csv(file = "activity.csv", header = TRUE, na.strings = "NA", nrows = 17568)
+```
 
+3. Upload the libraries that will be used: *dplyr* to summarize efficiently and *ggplot2* to plot. If any library is not installed yet, execute *install.packages("name_of_the_package")* to install it.
+```{r libraries, echo = TRUE, message = FALSE}
+library(dplyr)
+library(ggplot2)
+```
+
+4. Set the column *date* of the dataset as actual dates, because it was read as character.
+```{r dates, echo = TRUE}
+data$date <- as.Date(data$date)
+```
 
 ## What is mean total number of steps taken per day?
 
+1. Exclude NA values, group the data by date and sum the total of steps by date. The result is assign into *sumSteps*.
+```{r groupSumSteps, echo = TRUE, message = FALSE}
+sumSteps <- data %>% filter(steps != "NA") %>% group_by(date) %>% summarize(steps = sum(steps))
+```
 
+2. Create a histogram of the total number of steps taken each day.
+```{r histSumSteps, echo = TRUE, message = FALSE}
+ggplot(sumSteps, aes(x = steps)) + geom_histogram(color = "darkgreen", fill = "lightgreen") + labs(title = "Total number of steps taken each day", x = "Steps", y = "Count")
+```
+
+3. Calculate and report the mean (*meanStepsPerDay*) and median (*medianStepsPerDay*) of the total number of steps taken per day.
+```{r meanmedian, echo = TRUE, message = FALSE}
+meanStepsPerDay <- data %>% filter(steps != "NA") %>% group_by(date) %>% summarize(meanStepsPerDay = mean(steps))
+as.matrix(meanStepsPerDay)
+medianStepsPerDay <- data %>% filter(steps != "NA") %>% group_by(date) %>% summarize(medianStepsPerDay = median(steps))
+as.matrix(medianStepsPerDay)
+```
 
 ## What is the average daily activity pattern?
 
+1. Calculate the average number of steps taken across all days by each 5-minute intervals. The result is assign to *aveStepsbyInterval*.
+```{r averageInterval, echo = TRUE, message = FALSE}
+aveStepsbyInterval <- data %>% filter(steps != "NA") %>% group_by(interval) %>% summarize(averageSteps = mean(steps))
+```
 
+2. Time series plot of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all days (y-axis).
+```{r histAveInter, echo = TRUE, message = FALSE}
+ggplot(aveStepsbyInterval, aes(x = interval, y = averageSteps)) + geom_line() + labs(title = "Time series plot of the average number of steps taken each 5-minute interval across all days", x = "Steps", y = "Count")
+```
+
+3. 5-minute interval, on average across all the days in the dataset, that contains the maximum number of steps.
+```{r maxInterval, echo = TRUE, message = FALSE}
+maxInterval <- aveStepsbyInterval %>% filter(averageSteps == max(averageSteps))
+print(paste("5 minute interval: ", maxInterval[[1]], "; ", "Number of steps: ", maxInterval[[2]]))
+```
 
 ## Imputing missing values
 
+1. Calculate and report the total number of missing values in the dataset.
+```{r NAs, echo = TRUE, message = FALSE}
+countNA <- data %>% count(steps == "NA")
+print(paste("Number of missing values: ", countNA[[2]][2]))
+```
 
+2. Devise a strategy for filling in all of the missing values in the dataset. In this case, the NAs were replaced with the average number of steps of the whole dataset. The new dataset was assign to *newdata*. Additionally, the date column was transform to Date format.
+```{r newdata, echo = TRUE, message = FALSE}
+newdata <- data %>% mutate(steps = ifelse(is.na(steps), mean(na.omit(data$steps)), steps))
+newdata$date <- as.Date(newdata$date)
+```
+
+3. Group the new data by date and sum the total of steps by date. The result is assign into *sumNewSteps*.
+```{r groupNewSumSteps, echo = TRUE, message = FALSE}
+sumNewSteps <- newdata %>% group_by(date) %>% summarize(steps = sum(steps))
+```
+
+4. Make a histogram of the total number of steps taken each day.
+```{r newHistSumSteps, echo = TRUE, message = FALSE}
+ggplot(sumNewSteps, aes(x = steps)) + geom_histogram(color = "darkgreen", fill = "lightgreen") + labs(title = "Total number of steps taken each day with the new dataset", x = "Steps", y = "Count")
+```
+
+5. Calculate and report the mean (*meanNewStepsPerDay*) and median (*medianNewStepsPerDay*) of the total number of steps taken per day of the new dataset. The values did differ from the initial data. Most of the means did change. Just some medians changed.
+```{r meanmedianNew, echo = TRUE, message = FALSE}
+meanNewStepsPerDay <- newdata %>% group_by(date) %>% summarize(meanNewStepsPerDay = mean(steps))
+as.matrix(meanNewStepsPerDay)
+medianNewStepsPerDay <- newdata %>% group_by(date) %>% summarize(medianNewStepsPerDay = median(steps))
+as.matrix(medianNewStepsPerDay)
+```
+
+6. What is the impact of imputing missing data on the estimates of the total daily number of steps? To answer this questions, first, *aveNewStepsbyInterval* will contain the data for the new time series plot.
+```{r averageNewInterval, echo = TRUE, message = FALSE}
+aveNewStepsbyInterval <- newdata %>% group_by(interval) %>% summarize(averageNewSteps = mean(steps))
+```
+
+7. Second, the two time series plots (old and new data) will be shown. Use the library *gridExtra* to set the grid. If it is not installed, run *install.packages("gridExtra")*.
+```{r lineplots, echo = TRUE, message = FALSE}
+oldplot <- ggplot(aveStepsbyInterval, aes(x = interval, y = averageSteps)) + ylim(0, 210) + geom_line() + labs(title = "Time series plot (old data)", x = "Steps", y = "Count")
+newplot <- ggplot(aveNewStepsbyInterval, aes(x = interval, y = averageNewSteps)) + ylim(0, 210) + geom_line() + labs(title = "Time plot (new data)", x = "Steps", y = "Count")
+library(gridExtra)
+grid.arrange(oldplot, newplot, ncol = 2)
+```
+
+8. As shown in the plots, the old data did not differ significantly from the new data, just in some peaks. The means and medians of the both datasets are shown below. Niether the mean nor the median changed.
+```{r reportMeanMedian, echo = TRUE, message = FALSE}
+writeLines(c(paste("Mean steps old data: ", mean(na.omit(data$steps))), paste("Mean steps new data: ", mean(newdata$steps))))
+writeLines(c(paste("Median steps old data: ", median(na.omit(data$steps))), paste("Median steps new data: ", median(newdata$steps))))
+```
 
 ## Are there differences in activity patterns between weekdays and weekends?
+
+1. Create a new column in the new data with either "weekday" or "weekend".
+```{r dataWeek, echo = TRUE, message = FALSE}
+newdata <- newdata %>% mutate(day = ifelse(weekdays(date) == "Saturday" | weekdays(date) == "Sunday", "weekend", "weekday"))
+```
+
+2. Assign to *aveStepsWeekdays* and *aveStepsWeekends* the average number of steps taken by each 5-minute interval across weekdays and weekends, respectively.
+```{r aveStepsWeek, echo = TRUE, message = FALSE}
+aveStepsWeekdays <- newdata %>% filter(day == "weekday") %>% group_by(interval) %>% summarize(aveSteps = mean(steps))
+aveStepsWeekends <- newdata %>% filter(day == "weekend") %>% group_by(interval) %>% summarize(aveSteps = mean(steps))
+```
+
+3. Make a panel plot containing a time series plot of the average number of steps taken by each 5-minute interval across weekdays and weekends.
+```{r weeklineplots, echo = TRUE, message = FALSE}
+weekdaysPlot <- ggplot(aveStepsWeekdays, aes(x = interval, y = aveSteps)) + geom_line() + labs(title = "Average number of steps taken by each 5-minute interval (weekdays)", x = "Steps", y = "Count")
+weekendsPlot <- ggplot(aveStepsWeekends, aes(x = interval, y = aveSteps)) + geom_line() + labs(title = "Average number of steps taken by each 5-minute interval (weekends)", x = "Steps", y = "Count")
+grid.arrange(weekdaysPlot, weekendsPlot, nrow = 2)
+```
